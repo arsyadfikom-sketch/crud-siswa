@@ -1,5 +1,8 @@
 <?php
 
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // ==========================
 // KONEKSI DATABASE RDS
 // ==========================
@@ -11,66 +14,77 @@ $db   = "sekolah";
 
 $conn = mysqli_connect($host, $user, $pass, $db);
 
-if(!$conn){
+if (!$conn) {
+
     die("Koneksi gagal : " . mysqli_connect_error());
+
 }
 
 // ==========================
-// BUAT TABEL JIKA BELUM ADA
+// BUAT FOLDER UPLOAD
 // ==========================
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS siswa (
+if (!file_exists("upload")) {
 
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nis VARCHAR(20),
-    nama VARCHAR(100),
-    jenis_kelamin VARCHAR(20),
-    alamat TEXT,
-    jurusan VARCHAR(100),
-    foto VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    mkdir("upload", 0777, true);
 
-)");
-
-// ==========================
-// FOLDER UPLOAD
-// ==========================
-
-if(!is_dir("upload")){
-    mkdir("upload");
 }
 
 // ==========================
-// TAMBAH DATA
+// SIMPAN DATA
 // ==========================
 
-if(isset($_POST['simpan'])){
+if (isset($_POST['simpan'])) {
 
-    $nis = $_POST['nis'];
-    $nama = $_POST['nama'];
-    $jk = $_POST['jk'];
-    $alamat = $_POST['alamat'];
-    $jurusan = $_POST['jurusan'];
+    $nis      = $_POST['nis'];
+    $nama     = $_POST['nama'];
+    $jk       = $_POST['jk'];
+    $alamat   = $_POST['alamat'];
+    $jurusan  = $_POST['jurusan'];
 
-    $foto = $_FILES['foto']['name'];
-    $tmp  = $_FILES['foto']['tmp_name'];
+    $foto = "";
 
-    $nama_foto = time().'_'.$foto;
+    // ==========================
+    // UPLOAD FOTO
+    // ==========================
 
-    move_uploaded_file($tmp, "upload/".$nama_foto);
+    if ($_FILES['foto']['name'] != "") {
 
-    mysqli_query($conn, "INSERT INTO siswa VALUES(
+        $foto = time() . "_" . $_FILES['foto']['name'];
 
-        NULL,
+        move_uploaded_file(
+
+            $_FILES['foto']['tmp_name'],
+            "upload/" . $foto
+
+        );
+    }
+
+    // ==========================
+    // INSERT DATABASE
+    // ==========================
+
+    $query = "INSERT INTO siswa
+    (
+        nis,
+        nama,
+        jk,
+        alamat,
+        jurusan,
+        foto
+    )
+
+    VALUES
+    (
         '$nis',
         '$nama',
         '$jk',
         '$alamat',
         '$jurusan',
-        '$nama_foto',
-        NOW()
+        '$foto'
+    )";
 
-    )");
+    mysqli_query($conn, $query);
 
     header("Location:index.php");
 }
@@ -79,61 +93,24 @@ if(isset($_POST['simpan'])){
 // HAPUS DATA
 // ==========================
 
-if(isset($_GET['hapus'])){
+if (isset($_GET['hapus'])) {
 
     $id = $_GET['hapus'];
 
-    $data = mysqli_fetch_array(mysqli_query($conn, "SELECT * FROM siswa WHERE id='$id'"));
+    $ambil = mysqli_query($conn, "SELECT * FROM siswa WHERE id='$id'");
 
-    if(file_exists("upload/".$data['foto'])){
-        unlink("upload/".$data['foto']);
+    $data = mysqli_fetch_assoc($ambil);
+
+    if ($data['foto'] != "") {
+
+        if (file_exists("upload/" . $data['foto'])) {
+
+            unlink("upload/" . $data['foto']);
+
+        }
     }
 
     mysqli_query($conn, "DELETE FROM siswa WHERE id='$id'");
-
-    header("Location:index.php");
-}
-
-// ==========================
-// EDIT DATA
-// ==========================
-
-if(isset($_POST['update'])){
-
-    $id = $_POST['id'];
-
-    $nis = $_POST['nis'];
-    $nama = $_POST['nama'];
-    $jk = $_POST['jk'];
-    $alamat = $_POST['alamat'];
-    $jurusan = $_POST['jurusan'];
-
-    $queryFoto = "";
-
-    if($_FILES['foto']['name'] != ""){
-
-        $foto = $_FILES['foto']['name'];
-        $tmp  = $_FILES['foto']['tmp_name'];
-
-        $nama_foto = time().'_'.$foto;
-
-        move_uploaded_file($tmp, "upload/".$nama_foto);
-
-        $queryFoto = ", foto='$nama_foto'";
-    }
-
-    mysqli_query($conn, "UPDATE siswa SET
-
-        nis='$nis',
-        nama='$nama',
-        jenis_kelamin='$jk',
-        alamat='$alamat',
-        jurusan='$jurusan'
-        $queryFoto
-
-        WHERE id='$id'
-    
-    ");
 
     header("Location:index.php");
 }
@@ -144,15 +121,14 @@ if(isset($_POST['update'])){
 <html>
 <head>
 
-    <title>CRUD Data Siswa</title>
+    <title>CRUD Data Siswa AWS</title>
 
     <style>
 
         body{
             font-family:Arial;
             background:#f4f4f4;
-            margin:0;
-            padding:30px;
+            padding:20px;
         }
 
         .container{
@@ -164,6 +140,17 @@ if(isset($_POST['update'])){
 
         h2{
             margin-top:0;
+        }
+
+        input, textarea, select{
+
+            width:100%;
+            padding:10px;
+            margin-top:5px;
+            margin-bottom:15px;
+            border:1px solid #ccc;
+            border-radius:5px;
+
         }
 
         table{
@@ -183,31 +170,22 @@ if(isset($_POST['update'])){
             color:white;
         }
 
-        input, textarea, select{
-            width:100%;
-            padding:10px;
-            margin-top:5px;
-            margin-bottom:15px;
-        }
-
         .btn{
+
             padding:10px 15px;
             border:none;
-            color:white;
             border-radius:5px;
-            cursor:pointer;
+            color:white;
             text-decoration:none;
+            cursor:pointer;
+
         }
 
-        .btn-simpan{
+        .simpan{
             background:green;
         }
 
-        .btn-edit{
-            background:orange;
-        }
-
-        .btn-hapus{
+        .hapus{
             background:red;
         }
 
@@ -222,159 +200,109 @@ if(isset($_POST['update'])){
 
 <div class="container">
 
-<?php
+    <h2>CRUD Data Siswa</h2>
 
-// ==========================
-// FORM EDIT
-// ==========================
+    <form method="POST" enctype="multipart/form-data">
 
-if(isset($_GET['edit'])){
+        <label>NIS</label>
+        <input type="text" name="nis" required>
 
-    $id = $_GET['edit'];
+        <label>Nama</label>
+        <input type="text" name="nama" required>
 
-    $edit = mysqli_fetch_array(mysqli_query($conn, "SELECT * FROM siswa WHERE id='$id'"));
+        <label>Jenis Kelamin</label>
 
-?>
+        <select name="jk">
 
-<h2>Edit Data Siswa</h2>
+            <option value="Laki-laki">Laki-laki</option>
+            <option value="Perempuan">Perempuan</option>
 
-<form method="POST" enctype="multipart/form-data">
+        </select>
 
-    <input type="hidden" name="id" value="<?= $edit['id']; ?>">
+        <label>Alamat</label>
+        <textarea name="alamat"></textarea>
 
-    <label>NIS</label>
-    <input type="text" name="nis" value="<?= $edit['nis']; ?>" required>
+        <label>Jurusan</label>
+        <input type="text" name="jurusan">
 
-    <label>Nama</label>
-    <input type="text" name="nama" value="<?= $edit['nama']; ?>" required>
+        <label>Foto</label>
+        <input type="file" name="foto">
 
-    <label>Jenis Kelamin</label>
+        <button type="submit" name="simpan" class="btn simpan">
+            Simpan Data
+        </button>
 
-    <select name="jk">
+    </form>
 
-        <option <?= ($edit['jenis_kelamin']=='Laki-laki') ? 'selected':''; ?>>
-            Laki-laki
-        </option>
+    <hr>
 
-        <option <?= ($edit['jenis_kelamin']=='Perempuan') ? 'selected':''; ?>>
-            Perempuan
-        </option>
+    <h2>Data Siswa</h2>
 
-    </select>
+    <table>
 
-    <label>Alamat</label>
-    <textarea name="alamat"><?= $edit['alamat']; ?></textarea>
+        <tr>
 
-    <label>Jurusan</label>
-    <input type="text" name="jurusan" value="<?= $edit['jurusan']; ?>">
+            <th>No</th>
+            <th>Foto</th>
+            <th>NIS</th>
+            <th>Nama</th>
+            <th>JK</th>
+            <th>Alamat</th>
+            <th>Jurusan</th>
+            <th>Aksi</th>
 
-    <label>Foto</label>
-    <input type="file" name="foto">
+        </tr>
 
-    <button type="submit" name="update" class="btn btn-edit">
-        Update
-    </button>
+        <?php
 
-</form>
+        $no = 1;
 
-<?php } else { ?>
+        $query = mysqli_query($conn, "SELECT * FROM siswa ORDER BY id DESC");
 
-<h2>Tambah Data Siswa</h2>
+        while($data = mysqli_fetch_assoc($query)){
 
-<form method="POST" enctype="multipart/form-data">
+        ?>
 
-    <label>NIS</label>
-    <input type="text" name="nis" required>
+        <tr>
 
-    <label>Nama</label>
-    <input type="text" name="nama" required>
+            <td><?php echo $no++; ?></td>
 
-    <label>Jenis Kelamin</label>
+            <td>
 
-    <select name="jk">
+                <?php if($data['foto'] != ""){ ?>
 
-        <option>Laki-laki</option>
-        <option>Perempuan</option>
+                    <img
+                        src="upload/<?php echo $data['foto']; ?>"
+                        width="80"
+                    >
 
-    </select>
+                <?php } ?>
 
-    <label>Alamat</label>
-    <textarea name="alamat"></textarea>
+            </td>
 
-    <label>Jurusan</label>
-    <input type="text" name="jurusan">
+            <td><?php echo $data['nis']; ?></td>
+            <td><?php echo $data['nama']; ?></td>
+            <td><?php echo $data['jk']; ?></td>
+            <td><?php echo $data['alamat']; ?></td>
+            <td><?php echo $data['jurusan']; ?></td>
 
-    <label>Foto</label>
-    <input type="file" name="foto" required>
+            <td>
 
-    <button type="submit" name="simpan" class="btn btn-simpan">
-        Simpan
-    </button>
+                <a
+                    class="btn hapus"
+                    href="?hapus=<?php echo $data['id']; ?>"
+                    onclick="return confirm('Yakin hapus data?')"
+                >
+                    Hapus
+                </a>
 
-</form>
+            </td>
 
-<?php } ?>
+        </tr>
 
-<hr>
+        <?php } ?>
 
-<h2>Data Siswa</h2>
-
-<table>
-
-    <tr>
-        <th>No</th>
-        <th>Foto</th>
-        <th>NIS</th>
-        <th>Nama</th>
-        <th>JK</th>
-        <th>Alamat</th>
-        <th>Jurusan</th>
-        <th>Aksi</th>
-    </tr>
-
-    <?php
-
-    $no = 1;
-
-    $query = mysqli_query($conn, "SELECT * FROM siswa ORDER BY id DESC");
-
-    while($data = mysqli_fetch_array($query)){
-
-    ?>
-
-    <tr>
-
-        <td><?= $no++; ?></td>
-
-        <td>
-            <img src="upload/<?= $data['foto']; ?>" width="80">
-        </td>
-
-        <td><?= $data['nis']; ?></td>
-        <td><?= $data['nama']; ?></td>
-        <td><?= $data['jenis_kelamin']; ?></td>
-        <td><?= $data['alamat']; ?></td>
-        <td><?= $data['jurusan']; ?></td>
-
-        <td>
-
-            <a class="btn btn-edit" href="?edit=<?= $data['id']; ?>">
-                Edit
-            </a>
-
-            <a class="btn btn-hapus"
-               href="?hapus=<?= $data['id']; ?>"
-               onclick="return confirm('Yakin hapus data?')">
-               Hapus
-            </a>
-
-        </td>
-
-    </tr>
-
-    <?php } ?>
-
-</table>
+    </table>
 
 </div>
 
