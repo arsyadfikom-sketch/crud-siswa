@@ -1,40 +1,9 @@
 <?php
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+include 'config.php';
+include 'upload_s3.php';
 
-// ==========================
-// KONEKSI DATABASE RDS
-// ==========================
-
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "sekolah";
-
-$conn = mysqli_connect($host, $user, $pass, $db);
-
-if (!$conn) {
-
-    die("Koneksi gagal : " . mysqli_connect_error());
-
-}
-
-// ==========================
-// BUAT FOLDER UPLOAD
-// ==========================
-
-if (!file_exists("upload")) {
-
-    mkdir("upload", 0777, true);
-
-}
-
-// ==========================
-// SIMPAN DATA
-// ==========================
-
-if (isset($_POST['simpan'])) {
+if(isset($_POST['simpan'])){
 
     $nis      = $_POST['nis'];
     $nama     = $_POST['nama'];
@@ -42,29 +11,9 @@ if (isset($_POST['simpan'])) {
     $alamat   = $_POST['alamat'];
     $jurusan  = $_POST['jurusan'];
 
-    $foto = "";
+    $foto = uploadFoto($s3,$bucket,$_FILES['foto']);
 
-    // ==========================
-    // UPLOAD FOTO
-    // ==========================
-
-    if ($_FILES['foto']['name'] != "") {
-
-        $foto = time() . "_" . $_FILES['foto']['name'];
-
-        move_uploaded_file(
-
-            $_FILES['foto']['tmp_name'],
-            "upload/" . $foto
-
-        );
-    }
-
-    // ==========================
-    // INSERT DATABASE
-    // ==========================
-
-    $query = "INSERT INTO siswa
+    mysqli_query($conn,"INSERT INTO siswa
     (
         nis,
         nama,
@@ -82,37 +31,10 @@ if (isset($_POST['simpan'])) {
         '$alamat',
         '$jurusan',
         '$foto'
-    )";
-
-    mysqli_query($conn, $query);
+    )");
 
     header("Location:index.php");
-}
 
-// ==========================
-// HAPUS DATA
-// ==========================
-
-if (isset($_GET['hapus'])) {
-
-    $id = $_GET['hapus'];
-
-    $ambil = mysqli_query($conn, "SELECT * FROM siswa WHERE id='$id'");
-
-    $data = mysqli_fetch_assoc($ambil);
-
-    if ($data['foto'] != "") {
-
-        if (file_exists("upload/" . $data['foto'])) {
-
-            unlink("upload/" . $data['foto']);
-
-        }
-    }
-
-    mysqli_query($conn, "DELETE FROM siswa WHERE id='$id'");
-
-    header("Location:index.php");
 }
 
 ?>
@@ -121,188 +43,184 @@ if (isset($_GET['hapus'])) {
 <html>
 <head>
 
-    <title>CRUD Data Siswa AWS</title>
+<title>CRUD Data Siswa AWS</title>
 
-    <style>
+<style>
 
-        body{
-            font-family:Arial;
-            background:#f4f4f4;
-            padding:20px;
-        }
+body{
 
-        .container{
-            background:white;
-            padding:20px;
-            border-radius:10px;
-            box-shadow:0 0 10px rgba(0,0,0,0.1);
-        }
+    font-family:Arial;
+    background:#f4f4f4;
+    padding:20px;
 
-        h2{
-            margin-top:0;
-        }
+}
 
-        input, textarea, select{
+.container{
 
-            width:100%;
-            padding:10px;
-            margin-top:5px;
-            margin-bottom:15px;
-            border:1px solid #ccc;
-            border-radius:5px;
+    background:white;
+    padding:20px;
+    border-radius:10px;
 
-        }
+}
 
-        table{
-            width:100%;
-            border-collapse:collapse;
-            margin-top:20px;
-        }
+input, textarea, select{
 
-        table th, table td{
-            border:1px solid #ddd;
-            padding:10px;
-            text-align:center;
-        }
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    margin-bottom:10px;
 
-        table th{
-            background:#007bff;
-            color:white;
-        }
+}
 
-        .btn{
+table{
 
-            padding:10px 15px;
-            border:none;
-            border-radius:5px;
-            color:white;
-            text-decoration:none;
-            cursor:pointer;
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
 
-        }
+}
 
-        .simpan{
-            background:green;
-        }
+table th, table td{
 
-        .hapus{
-            background:red;
-        }
+    border:1px solid #ddd;
+    padding:10px;
 
-        img{
-            border-radius:5px;
-        }
+}
 
-    </style>
+table th{
+
+    background:#007bff;
+    color:white;
+
+}
+
+.btn{
+
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    text-decoration:none;
+    color:white;
+    cursor:pointer;
+
+}
+
+.simpan{
+
+    background:green;
+
+}
+
+.hapus{
+
+    background:red;
+
+}
+
+</style>
 
 </head>
 <body>
 
 <div class="container">
 
-    <h2>CRUD Data Siswa</h2>
+<h2>CRUD Data Siswa AWS</h2>
 
-    <form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data">
 
-        <label>NIS</label>
-        <input type="text" name="nis" required>
+<label>NIS</label>
+<input type="text" name="nis" required>
 
-        <label>Nama</label>
-        <input type="text" name="nama" required>
+<label>Nama</label>
+<input type="text" name="nama" required>
 
-        <label>Jenis Kelamin</label>
+<label>Jenis Kelamin</label>
 
-        <select name="jk">
+<select name="jk">
 
-            <option value="Laki-laki">Laki-laki</option>
-            <option value="Perempuan">Perempuan</option>
+<option>Laki-laki</option>
+<option>Perempuan</option>
 
-        </select>
+</select>
 
-        <label>Alamat</label>
-        <textarea name="alamat"></textarea>
+<label>Alamat</label>
+<textarea name="alamat"></textarea>
 
-        <label>Jurusan</label>
-        <input type="text" name="jurusan">
+<label>Jurusan</label>
+<input type="text" name="jurusan">
 
-        <label>Foto</label>
-        <input type="file" name="foto">
+<label>Foto</label>
+<input type="file" name="foto">
 
-        <button type="submit" name="simpan" class="btn simpan">
-            Simpan Data
-        </button>
+<button class="btn simpan" name="simpan">
+Simpan
+</button>
 
-    </form>
+</form>
 
-    <hr>
+<hr>
 
-    <h2>Data Siswa</h2>
+<table>
 
-    <table>
+<tr>
 
-        <tr>
+<th>No</th>
+<th>Foto</th>
+<th>NIS</th>
+<th>Nama</th>
+<th>JK</th>
+<th>Alamat</th>
+<th>Jurusan</th>
+<th>Aksi</th>
 
-            <th>No</th>
-            <th>Foto</th>
-            <th>NIS</th>
-            <th>Nama</th>
-            <th>JK</th>
-            <th>Alamat</th>
-            <th>Jurusan</th>
-            <th>Aksi</th>
+</tr>
 
-        </tr>
+<?php
 
-        <?php
+$no = 1;
 
-        $no = 1;
+$query = mysqli_query($conn,"SELECT * FROM siswa ORDER BY id DESC");
 
-        $query = mysqli_query($conn, "SELECT * FROM siswa ORDER BY id DESC");
+while($data = mysqli_fetch_assoc($query)){
 
-        while($data = mysqli_fetch_assoc($query)){
+?>
 
-        ?>
+<tr>
 
-        <tr>
+<td><?php echo $no++; ?></td>
 
-            <td><?php echo $no++; ?></td>
+<td>
 
-            <td>
+<img
+src="<?php echo $data['foto']; ?>"
+width="80"
+>
 
-                <?php if($data['foto'] != ""){ ?>
+</td>
 
-                    <img
-                        src="upload/<?php echo $data['foto']; ?>"
-                        width="80"
-                    >
+<td><?php echo $data['nis']; ?></td>
+<td><?php echo $data['nama']; ?></td>
+<td><?php echo $data['jk']; ?></td>
+<td><?php echo $data['alamat']; ?></td>
+<td><?php echo $data['jurusan']; ?></td>
 
-                <?php } ?>
+<td>
 
-            </td>
+<a
+href="delete.php?id=<?php echo $data['id']; ?>"
+class="btn hapus"
+onclick="return confirm('Hapus data?')"
+>
+Hapus
+</a>
 
-            <td><?php echo $data['nis']; ?></td>
-            <td><?php echo $data['nama']; ?></td>
-            <td><?php echo $data['jk']; ?></td>
-            <td><?php echo $data['alamat']; ?></td>
-            <td><?php echo $data['jurusan']; ?></td>
+</td>
 
-            <td>
+</tr>
 
-                <a
-                    class="btn hapus"
-                    href="?hapus=<?php echo $data['id']; ?>"
-                    onclick="return confirm('Yakin hapus data?')"
-                >
-                    Hapus
-                </a>
+<?php } ?>
 
-            </td>
-
-        </tr>
-
-        <?php } ?>
-
-    </table>
+</table>
 
 </div>
 
